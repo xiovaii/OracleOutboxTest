@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oracleoutboxtest-app
+    depends_on:
+      oracledb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080 
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+
+  oracledb:
+    image: gvenzl/oracle-xe:18-slim
+    container_name: oracle-db
+    restart: unless-stopped
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: appuser
+      APP_USER_PASSWORD: appuser
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracledb-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'SELECT 1 FROM dual;' | sqlplus -s system/oracle@localhost:1521/XEPDB1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  oracledb-data:
+  rabbitmq-data:
